@@ -487,7 +487,6 @@ byte* read_buffer_n(void* dst, buf_t* mtr_buf, const ssize_t n) {
                    remain
                   );
 
-            mtr_buf->buffer_len = MEMORY_BUFFER_SIZE - remain;
             mtr_buf->buffer_offset = remain;
             mtr_buf->start_buffer_offset = remain;
             mtr_buf->start_file_offset = file_offset;
@@ -521,12 +520,9 @@ void read_block_into_buffer(buf_t* mtr_buf) {
     byte block_buffer[OS_FILE_LOG_BLOCK_SIZE];
     block_hdr block_header;
 
-    ssize_t ret;
-    ssize_t max_length =
-        (mtr_buf->buffer_len > 0 && mtr_buf->buffer_len <= MEMORY_BUFFER_SIZE) ?
-         mtr_buf->buffer_len : MEMORY_BUFFER_SIZE;
+    ssize_t ret, incr_len;
     mtr_buf->buffer_len = mtr_buf->buffer_offset;
-    while (mtr_buf->buffer_len + LOG_BLOCK_DATA_SIZE <= max_length) {
+    while (mtr_buf->buffer_len <= MEMORY_BUFFER_SIZE - OS_FILE_LOG_BLOCK_SIZE) {
         ret = pread(fd, block_buffer,
                 OS_FILE_LOG_BLOCK_SIZE, file_offset);
         if (ret != OS_FILE_LOG_BLOCK_SIZE) break;
@@ -539,13 +535,15 @@ void read_block_into_buffer(buf_t* mtr_buf) {
             mtr_buf->buffer_offset = mtr_buf->buffer_len +
                 block_header.first_rec_group - LOG_BLOCK_HDR_SIZE;
 
+        incr_len = block_header.block_data_len - LOG_BLOCK_HDR_SIZE;
+        if (block_header.block_data_len >= OS_FILE_LOG_BLOCK_SIZE)
+            incr_len -= LOG_BLOCK_TRL_SIZE;
         memcpy(
-          mtr_buf->buffer + mtr_buf->buffer_len,
-          block_buffer + LOG_BLOCK_HDR_SIZE,
-          block_header.block_data_len - LOG_BLOCK_HDR_SIZE - LOG_BLOCK_TRL_SIZE
-        );
-        mtr_buf->buffer_len += block_header.block_data_len
-            - LOG_BLOCK_HDR_SIZE - LOG_BLOCK_TRL_SIZE;
+                mtr_buf->buffer + mtr_buf->buffer_len,
+                block_buffer + LOG_BLOCK_HDR_SIZE,
+                incr_len
+              );
+        mtr_buf->buffer_len += incr_len;
     }
 }
 
