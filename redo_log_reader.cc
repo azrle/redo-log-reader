@@ -209,10 +209,10 @@ int main(int argc, char* argv[]) {
                         while (len > 0) {
                             buf_ptr = read_buffer_n(NULL, mtr_buf, len);
                             if (!buf_ptr) goto done;
-                            mtr_buf->buffer_offset += len;
+                            delta = mtr_buf->buffer_len < len ?
+                                    mtr_buf->buffer_len : len;
+                            mtr_buf->buffer_offset += delta;
 
-                            delta = mtr_buf->buffer_len - mtr_buf->buffer_offset < len ?
-                                    mtr_buf->buffer_len - mtr_buf->buffer_offset : len;
                             assert(delta > 0);
                             hexdump(buf_ptr, delta);
                             len -= delta;
